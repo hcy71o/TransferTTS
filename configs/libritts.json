@@ -7,8 +7,8 @@
     "learning_rate": 2e-4,
     "betas": [0.8, 0.99],
     "eps": 1e-9,
-    "batch_size": 12,
-    "fp16_run": true,
+    "batch_size": 8,
+    "fp16_run": false,
     "lr_decay": 0.999875,
     "segment_size": 8192,
     "init_lr_ratio": 1,
@@ -17,7 +17,7 @@
     "c_kl": 1.0
   },
   "data": {
-    "data_path":"/home/hcy71/DATA/LibriTTS",
+    "data_path":"/home/hcy71/DATA/preprocessed_data/LibriTTS",
     "training_files":"filelists/libritts_train.txt",
     "validation_files":"filelists/libritts_val.txt",
     "text_cleaners":["english_cleaners2"],
@@ -30,7 +30,7 @@
     "mel_fmin": 0.0,
     "mel_fmax": null,
     "add_blank": true,
-    "n_speakers": 1124,
+    "n_speakers": 1147,
     "cleaned_text": true
   },
   "model": {

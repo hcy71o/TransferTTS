@@ -233,7 +233,8 @@ class PosteriorEncoder(nn.Module):
 
   def forward(self, x, x_lengths, g=None):
     x_mask = torch.unsqueeze(commons.sequence_mask(x_lengths, x.size(2)), 1).to(x.dtype)
-    x = self.pre(x) * x_mask
+    x = self.pre(x)
+    x = x * x_mask
     x = self.enc(x, x_mask, g=g)
     stats = self.proj(x) * x_mask
     m, logs = torch.split(stats, self.out_channels, dim=1)
@@ -463,7 +464,6 @@ class SynthesizerTrn(nn.Module):
       g = self.emb_g(sid).unsqueeze(-1) # [b, h, 1]
     else:
       g = None
-
     z, m_q, logs_q, y_mask = self.enc_q(y, y_lengths, g=g)
     z_p = self.flow(z, y_mask, g=g)
 

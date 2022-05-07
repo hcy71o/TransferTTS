@@ -33,7 +33,6 @@ class TextAudioLoader(torch.utils.data.Dataset):
         self.add_blank = hparams.add_blank
         self.min_text_len = getattr(hparams, "min_text_len", 1)
         self.max_text_len = getattr(hparams, "max_text_len", 190)
-
         random.seed(1234)
         random.shuffle(self.audiopaths_and_text)
         self._filter()
@@ -166,12 +165,17 @@ class TextAudioSpeakerLoader(torch.utils.data.Dataset):
         self.win_length     = hparams.win_length
         self.sampling_rate  = hparams.sampling_rate
         self.data_path = hparams.data_path
+        sids = []
+        for info in self.audiopaths_sid_text:
+            sids.append(info[2])
+        self.sid_dict = self.create_speaker_table(sids)
 
         self.cleaned_text = getattr(hparams, "cleaned_text", False)
 
         self.add_blank = hparams.add_blank
         self.min_text_len = getattr(hparams, "min_text_len", 1)
         self.max_text_len = getattr(hparams, "max_text_len", 190)
+        
 
         random.seed(1234)
         random.shuffle(self.audiopaths_sid_text)
@@ -234,8 +238,14 @@ class TextAudioSpeakerLoader(torch.utils.data.Dataset):
         return text_norm
 
     def get_sid(self, sid):
+        sid = self.sid_dict[sid]
         sid = torch.LongTensor([int(sid)])
         return sid
+
+    def create_speaker_table(self, sids):
+        speaker_ids = np.sort(np.unique(sids))
+        d = {speaker_ids[i]: i for i in range(len(speaker_ids))}
+        return d
 
     def __getitem__(self, index):
         return self.get_audio_text_speaker_pair(self.audiopaths_sid_text[index])
