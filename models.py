@@ -13,7 +13,6 @@ from torch.nn import Conv1d, ConvTranspose1d, AvgPool1d, Conv2d
 from torch.nn.utils import weight_norm, remove_weight_norm, spectral_norm
 from commons import init_weights, get_padding
 
-
 class StochasticDurationPredictor(nn.Module):
   def __init__(self, in_channels, filter_channels, kernel_size, p_dropout, n_flows=4, gin_channels=0):
     super().__init__()
@@ -448,7 +447,7 @@ class SynthesizerTrn(nn.Module):
     self.dec = Generator(inter_channels, resblock, resblock_kernel_sizes, resblock_dilation_sizes, upsample_rates, upsample_initial_channel, upsample_kernel_sizes, gin_channels=gin_channels)
     self.enc_q = PosteriorEncoder(spec_channels, inter_channels, hidden_channels, 5, 1, 16, gin_channels=gin_channels)
     self.flow = ResidualCouplingBlock(inter_channels, hidden_channels, 5, 1, 4, gin_channels=gin_channels)
-
+    self.style_encoder = MelStyleEncoder()
     if use_sdp:
       self.dp = StochasticDurationPredictor(hidden_channels, 192, 3, 0.5, 4, gin_channels=gin_channels)
     else:
@@ -457,7 +456,7 @@ class SynthesizerTrn(nn.Module):
     if n_speakers > 1:
       self.emb_g = nn.Embedding(n_speakers, gin_channels)
 
-  def forward(self, x, x_lengths, y, y_lengths, sid=None):
+  def forward(self, x, x_lengths, mel, y, y_lengths, sid=None):
     '''
     set g = None for posterior enc, sdp(dp), vocoder except flow
     '''
@@ -466,9 +465,14 @@ class SynthesizerTrn(nn.Module):
       g = self.emb_g(sid).unsqueeze(-1) # [b, h, 1]
     else:
       g = None
+    #* g: (8,256,1)
     # z, m_q, logs_q, y_mask = self.enc_q(y, y_lengths, g=g)
     z, m_q, logs_q, y_mask = self.enc_q(y, y_lengths, g=None)
-    z_p = self.flow(z, y_mask, g=g)
+    #* y_mask:(8,1,262)
+    # z_p = self.flow(z, y_mask, g=g)
+    #* Zero-shot
+    style_vector = self.style_encoder(mel.transpose(1,2), (y_mask.int()==0).squeeze(1))
+    z_p = self.flow(z, y_mask, g=style_vector.unsqueeze(-1))
 
     with torch.no_grad():
       # negative cross-entropy
@@ -502,7 +506,7 @@ class SynthesizerTrn(nn.Module):
     o = self.dec(z_slice, g=None)
     return o, l_length, attn, ids_slice, x_mask, y_mask, (z, z_p, m_p, logs_p, m_q, logs_q)
 
-  def infer(self, x, x_lengths, sid=None, noise_scale=1, length_scale=1, noise_scale_w=1., max_len=None):
+  def infer(self, x, x_lengths, mel, mel_lengths, sid=None, noise_scale=1, length_scale=1, noise_scale_w=1., max_len=None):
     x, m_p, logs_p, x_mask = self.enc_p(x, x_lengths)
     if self.n_speakers > 0:
       g = self.emb_g(sid).unsqueeze(-1) # [b, h, 1]
@@ -519,6 +523,7 @@ class SynthesizerTrn(nn.Module):
     w_ceil = torch.ceil(w)
     y_lengths = torch.clamp_min(torch.sum(w_ceil, [1, 2]), 1).long()
     y_mask = torch.unsqueeze(commons.sequence_mask(y_lengths, None), 1).to(x_mask.dtype)
+    
     attn_mask = torch.unsqueeze(x_mask, 2) * torch.unsqueeze(y_mask, -1)
     attn = commons.generate_path(w_ceil, attn_mask)
 
@@ -526,7 +531,11 @@ class SynthesizerTrn(nn.Module):
     logs_p = torch.matmul(attn.squeeze(1), logs_p.transpose(1, 2)).transpose(1, 2) # [b, t', t], [b, t, d] -> [b, d, t']
 
     z_p = m_p + torch.randn_like(m_p) * torch.exp(logs_p) * noise_scale
-    z = self.flow(z_p, y_mask, g=g, reverse=True)
+    #* used for mel style encoder
+    style_mask = torch.unsqueeze(commons.sequence_mask(mel_lengths, mel.size(2)), 1).to(x.dtype)
+    # z = self.flow(z_p, y_mask, g=g, reverse=True)
+    style_vector = self.style_encoder(mel.transpose(1,2), (style_mask.int()==0).squeeze(1))
+    z = self.flow(z_p, y_mask, g=style_vector.unsqueeze(-1), reverse=True)
     # o = self.dec((z * y_mask)[:,:,:max_len], g=g)
     o = self.dec((z * y_mask)[:,:,:max_len], g=None)
     return o, attn, y_mask, (z, z_p, m_p, logs_p)
@@ -541,3 +550,68 @@ class SynthesizerTrn(nn.Module):
     o_hat = self.dec(z_hat * y_mask, g=g_tgt)
     return o_hat, y_mask, (z, z_p, z_hat)
 
+class MelStyleEncoder(nn.Module):
+    ''' MelStyleEncoder '''
+    def __init__(self, n_mel_channels=80,
+          style_hidden=128,
+          style_vector_dim=256,
+          style_kernel_size=5,
+          style_head=2,
+          dropout=0.1):
+        super(MelStyleEncoder, self).__init__()
+        self.in_dim = n_mel_channels 
+        self.hidden_dim = style_hidden
+        self.out_dim = style_vector_dim
+        self.kernel_size = style_kernel_size
+        self.n_head = style_head
+        self.dropout = dropout
+
+        self.spectral = nn.Sequential(
+            modules.LinearNorm(self.in_dim, self.hidden_dim),
+            modules.Mish(),
+            nn.Dropout(self.dropout),
+            modules.LinearNorm(self.hidden_dim, self.hidden_dim),
+            modules.Mish(),
+            nn.Dropout(self.dropout)
+        )
+
+        self.temporal = nn.Sequential(
+            modules.Conv1dGLU(self.hidden_dim, self.hidden_dim, self.kernel_size, self.dropout),
+            modules.Conv1dGLU(self.hidden_dim, self.hidden_dim, self.kernel_size, self.dropout),
+        )
+
+        self.slf_attn = modules.MultiHeadAttention(self.n_head, self.hidden_dim, 
+                                self.hidden_dim//self.n_head, self.hidden_dim//self.n_head, self.dropout) 
+
+        self.fc = modules.LinearNorm(self.hidden_dim, self.out_dim)
+
+    def temporal_avg_pool(self, x, mask=None):
+        if mask is None:
+            out = torch.mean(x, dim=1)
+        else:
+            len_ = (~mask).sum(dim=1).unsqueeze(1)
+            x = x.masked_fill(mask.unsqueeze(-1), 0)
+            x = x.sum(dim=1)
+            out = torch.div(x, len_)
+        return out
+
+    def forward(self, x, mask=None):
+        max_len = x.shape[1]
+        slf_attn_mask = mask.unsqueeze(1).expand(-1, max_len, -1) if mask is not None else None
+        
+        # spectral
+        x = self.spectral(x)
+        # temporal
+        x = x.transpose(1,2)
+        x = self.temporal(x)
+        x = x.transpose(1,2)
+        # self-attention
+        if mask is not None:
+            x = x.masked_fill(mask.unsqueeze(-1), 0)
+        x, _ = self.slf_attn(x, mask=slf_attn_mask)
+        # fc
+        x = self.fc(x)
+        # temoral average pooling
+        w = self.temporal_avg_pool(x, mask=mask)
+
+        return w

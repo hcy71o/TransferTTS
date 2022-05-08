@@ -143,9 +143,7 @@ def train_and_evaluate(rank, epoch, hps, nets, optims, schedulers, scaler, loade
     speakers = speakers.cuda(rank, non_blocking=True)
 
     with autocast(enabled=hps.train.fp16_run):
-      y_hat, l_length, attn, ids_slice, x_mask, z_mask,\
-      (z, z_p, m_p, logs_p, m_q, logs_q) = net_g(x, x_lengths, spec, spec_lengths, speakers)
-
+    
       mel = spec_to_mel_torch(
           spec, 
           hps.data.filter_length, 
@@ -153,6 +151,10 @@ def train_and_evaluate(rank, epoch, hps, nets, optims, schedulers, scaler, loade
           hps.data.sampling_rate,
           hps.data.mel_fmin, 
           hps.data.mel_fmax)
+      
+      y_hat, l_length, attn, ids_slice, x_mask, z_mask,\
+      (z, z_p, m_p, logs_p, m_q, logs_q) = net_g(x, x_lengths, mel, spec, spec_lengths, speakers)
+
       y_mel = commons.slice_segments(mel, ids_slice, hps.train.segment_size // hps.data.hop_length)
       y_hat_mel = mel_spectrogram_torch(
           y_hat.squeeze(1), 
@@ -251,9 +253,6 @@ def evaluate(hps, generator, eval_loader, writer_eval):
         y_lengths = y_lengths[:1]
         speakers = speakers[:1]
         break
-      y_hat, attn, mask, *_ = generator.module.infer(x, x_lengths, speakers, max_len=1000)
-      y_hat_lengths = mask.sum([1,2]).long() * hps.data.hop_length
-
       mel = spec_to_mel_torch(
         spec, 
         hps.data.filter_length, 
@@ -261,6 +260,10 @@ def evaluate(hps, generator, eval_loader, writer_eval):
         hps.data.sampling_rate,
         hps.data.mel_fmin, 
         hps.data.mel_fmax)
+      print('정답:232', mel.shape, spec.shape)
+      y_hat, attn, mask, *_ = generator.module.infer(x, x_lengths, mel, y_lengths, speakers, max_len=1000)
+      y_hat_lengths = mask.sum([1,2]).long() * hps.data.hop_length
+
       y_hat_mel = mel_spectrogram_torch(
         y_hat.squeeze(1).float(),
         hps.data.filter_length,
