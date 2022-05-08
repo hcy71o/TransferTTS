@@ -44,8 +44,8 @@ class StochasticDurationPredictor(nn.Module):
     self.pre = nn.Conv1d(in_channels, filter_channels, 1)
     self.proj = nn.Conv1d(filter_channels, filter_channels, 1)
     self.convs = modules.DDSConv(filter_channels, kernel_size, n_layers=3, p_dropout=p_dropout)
-    if gin_channels != 0:
-      self.cond = nn.Conv1d(gin_channels, filter_channels, 1)
+    # if gin_channels != 0:
+    #   self.cond = nn.Conv1d(gin_channels, filter_channels, 1)
 
   def forward(self, x, x_mask, w=None, g=None, reverse=False, noise_scale=1.0):
     x = torch.detach(x)
@@ -112,8 +112,8 @@ class DurationPredictor(nn.Module):
     self.norm_2 = modules.LayerNorm(filter_channels)
     self.proj = nn.Conv1d(filter_channels, 1, 1)
 
-    if gin_channels != 0:
-      self.cond = nn.Conv1d(gin_channels, in_channels, 1)
+    # if gin_channels != 0:
+    #   self.cond = nn.Conv1d(gin_channels, in_channels, 1)
 
   def forward(self, x, x_mask, g=None):
     x = torch.detach(x)
@@ -265,8 +265,8 @@ class Generator(torch.nn.Module):
         self.conv_post = Conv1d(ch, 1, 7, 1, padding=3, bias=False)
         self.ups.apply(init_weights)
 
-        if gin_channels != 0:
-            self.cond = nn.Conv1d(gin_channels, upsample_initial_channel, 1)
+        # if gin_channels != 0:
+        #     self.cond = nn.Conv1d(gin_channels, upsample_initial_channel, 1)
 
     def forward(self, x, g=None):
         x = self.conv_pre(x)
@@ -458,13 +458,16 @@ class SynthesizerTrn(nn.Module):
       self.emb_g = nn.Embedding(n_speakers, gin_channels)
 
   def forward(self, x, x_lengths, y, y_lengths, sid=None):
-
+    '''
+    set g = None for posterior enc, sdp(dp), vocoder except flow
+    '''
     x, m_p, logs_p, x_mask = self.enc_p(x, x_lengths)
     if self.n_speakers > 0:
       g = self.emb_g(sid).unsqueeze(-1) # [b, h, 1]
     else:
       g = None
-    z, m_q, logs_q, y_mask = self.enc_q(y, y_lengths, g=g)
+    # z, m_q, logs_q, y_mask = self.enc_q(y, y_lengths, g=g)
+    z, m_q, logs_q, y_mask = self.enc_q(y, y_lengths, g=None)
     z_p = self.flow(z, y_mask, g=g)
 
     with torch.no_grad():
@@ -481,11 +484,13 @@ class SynthesizerTrn(nn.Module):
 
     w = attn.sum(2)
     if self.use_sdp:
-      l_length = self.dp(x, x_mask, w, g=g)
+      # l_length = self.dp(x, x_mask, w, g=g)
+      l_length = self.dp(x, x_mask, w, g=None)
       l_length = l_length / torch.sum(x_mask)
     else:
       logw_ = torch.log(w + 1e-6) * x_mask
-      logw = self.dp(x, x_mask, g=g)
+      # logw = self.dp(x, x_mask, g=g)
+      logw = self.dp(x, x_mask, g=None)
       l_length = torch.sum((logw - logw_)**2, [1,2]) / torch.sum(x_mask) # for averaging 
 
     # expand prior
@@ -493,7 +498,8 @@ class SynthesizerTrn(nn.Module):
     logs_p = torch.matmul(attn.squeeze(1), logs_p.transpose(1, 2)).transpose(1, 2)
 
     z_slice, ids_slice = commons.rand_slice_segments(z, y_lengths, self.segment_size)
-    o = self.dec(z_slice, g=g)
+    # o = self.dec(z_slice, g=g)
+    o = self.dec(z_slice, g=None)
     return o, l_length, attn, ids_slice, x_mask, y_mask, (z, z_p, m_p, logs_p, m_q, logs_q)
 
   def infer(self, x, x_lengths, sid=None, noise_scale=1, length_scale=1, noise_scale_w=1., max_len=None):
