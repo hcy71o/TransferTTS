@@ -1,4 +1,4 @@
-# TransferTTS (Zero-shot VITS) - PyTorch Implementation
+# TransferTTS (Zero-shot VITS) - PyTorch Implementation (-Ongoing-)
 
 Unofficial PyTorch Implementation of [Transfer Learning Framework for Low-Resource Text-to-Speech using a Large-Scale Unlabeled Speech Corpus](https://arxiv.org/abs/2203.15447). Most of codes are based on [VITS](https://github.com/jaywalnut310/vits)
 
