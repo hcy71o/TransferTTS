@@ -4,7 +4,7 @@ Unofficial PyTorch Implementation of [Transfer Learning Framework for Low-Resour
 
 0. MelStyleEncoder from [StyleSpeech](https://arxiv.org/abs/2106.03153) is used instead of the reference encoder.
 1. Implementation of untranscribed data training is omitted.
-2. LibriTTS dataset (train-clean-100 and train-clean-360) is used. Sampling rate is set to 22050Hz.
+2. [LibriTTS]((https://research.google/tools/datasets/libri-tts/)) dataset (train-clean-100 and train-clean-360) is used. Sampling rate is set to 22050Hz.
 
 <p align="center">
     <img src="img/Overview.jpg" width="80%">
@@ -25,9 +25,6 @@ Unofficial PyTorch Implementation of [Transfer Learning Framework for Low-Resour
 cd monotonic_align
 python setup.py build_ext --inplace
 ```
-## Datasets
-- [Pretraining: LibriTTS](https://research.google/tools/datasets/libri-tts/): a multi-speaker English dataset containing 585 hours of speech by 2456 speakers.
-- []
 ## Preprocessing
  
 Run 
