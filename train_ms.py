@@ -260,7 +260,6 @@ def evaluate(hps, generator, eval_loader, writer_eval):
         hps.data.sampling_rate,
         hps.data.mel_fmin, 
         hps.data.mel_fmax)
-      print('정답:232', mel.shape, spec.shape)
       y_hat, attn, mask, *_ = generator.module.infer(x, x_lengths, mel, y_lengths, speakers, max_len=1000)
       y_hat_lengths = mask.sum([1,2]).long() * hps.data.hop_length
 
