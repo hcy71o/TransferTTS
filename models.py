@@ -50,9 +50,9 @@ class StochasticDurationPredictor(nn.Module):
   def forward(self, x, x_mask, w=None, g=None, reverse=False, noise_scale=1.0):
     x = torch.detach(x)
     x = self.pre(x)
-    if g is not None:
-      g = torch.detach(g)
-      x = x + self.cond(g)
+    # if g is not None:
+    #   g = torch.detach(g)
+    #   x = x + self.cond(g)
     x = self.convs(x, x_mask)
     x = self.proj(x) * x_mask
 
@@ -510,9 +510,11 @@ class SynthesizerTrn(nn.Module):
       g = None
 
     if self.use_sdp:
-      logw = self.dp(x, x_mask, g=g, reverse=True, noise_scale=noise_scale_w)
+      # logw = self.dp(x, x_mask, g=g, reverse=True, noise_scale=noise_scale_w)
+      logw = self.dp(x, x_mask, g=None, reverse=True, noise_scale=noise_scale_w)
     else:
-      logw = self.dp(x, x_mask, g=g)
+      # logw = self.dp(x, x_mask, g=g)
+      logw = self.dp(x, x_mask, g=None)
     w = torch.exp(logw) * x_mask * length_scale
     w_ceil = torch.ceil(w)
     y_lengths = torch.clamp_min(torch.sum(w_ceil, [1, 2]), 1).long()
@@ -525,7 +527,8 @@ class SynthesizerTrn(nn.Module):
 
     z_p = m_p + torch.randn_like(m_p) * torch.exp(logs_p) * noise_scale
     z = self.flow(z_p, y_mask, g=g, reverse=True)
-    o = self.dec((z * y_mask)[:,:,:max_len], g=g)
+    # o = self.dec((z * y_mask)[:,:,:max_len], g=g)
+    o = self.dec((z * y_mask)[:,:,:max_len], g=None)
     return o, attn, y_mask, (z, z_p, m_p, logs_p)
 
   def voice_conversion(self, y, y_lengths, sid_src, sid_tgt):
