@@ -3,8 +3,8 @@
 Unofficial PyTorch Implementation of [Transfer Learning Framework for Low-Resource Text-to-Speech using a Large-Scale Unlabeled Speech Corpus](https://arxiv.org/abs/2203.15447). Most of codes are based on [VITS](https://github.com/jaywalnut310/vits)
 
 0. MelStyleEncoder from [StyleSpeech](https://arxiv.org/abs/2106.03153) is used instead of the reference encoder.
-1. Implementation of untranscribed data training is omitted. 
-2. Sampling rate is set to 22050Hz.
+1. Implementation of untranscribed data training is omitted.
+2. LibriTTS dataset (train-clean-100 and train-clean-360) is used. Sampling rate is set to 22050Hz.
 
 <p align="center">
     <img src="img/Overview.jpg" width="80%">
