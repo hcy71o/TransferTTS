@@ -40,6 +40,11 @@ Train your model with
 python train_ms.py -c configs/libritts.json -m libritts_base
 ```
 
+## Inference
+```
+python inference.py --ref_audio [REF AUDIO PATH] --text [INPUT TEXT]
+```
+
 # References
 - [TransferTTS](https://arxiv.org/abs/2203.15447)
 - [VITS](https://arxiv.org/abs/2106.06103)
