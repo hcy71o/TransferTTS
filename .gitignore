@@ -5,6 +5,7 @@ logs
 __pycache__
 .ipynb_checkpoints
 .*.swp
+wav*
 
 build
 *.c

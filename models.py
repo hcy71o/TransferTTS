@@ -506,7 +506,7 @@ class SynthesizerTrn(nn.Module):
     o = self.dec(z_slice, g=None)
     return o, l_length, attn, ids_slice, x_mask, y_mask, (z, z_p, m_p, logs_p, m_q, logs_q)
 
-  def infer(self, x, x_lengths, mel, mel_lengths, sid=None, noise_scale=1, length_scale=1, noise_scale_w=1., max_len=None):
+  def infer(self, x, x_lengths, mel, mel_lengths = None, sid=None, noise_scale=1, length_scale=1, noise_scale_w=1., max_len=None):
     x, m_p, logs_p, x_mask = self.enc_p(x, x_lengths)
     if self.n_speakers > 0:
       g = self.emb_g(sid).unsqueeze(-1) # [b, h, 1]
@@ -532,9 +532,12 @@ class SynthesizerTrn(nn.Module):
 
     z_p = m_p + torch.randn_like(m_p) * torch.exp(logs_p) * noise_scale
     #* used for mel style encoder
-    style_mask = torch.unsqueeze(commons.sequence_mask(mel_lengths, mel.size(2)), 1).to(x.dtype)
+    if mel_lengths is not None:
+      style_mask = torch.unsqueeze(commons.sequence_mask(mel_lengths, mel.size(2)), 1).to(x.dtype)
+      style_vector = self.style_encoder(mel.transpose(1,2), (style_mask.int()==0).squeeze(1))
+    else:
+      style_vector = self.style_encoder(mel.transpose(1,2), None)
     # z = self.flow(z_p, y_mask, g=g, reverse=True)
-    style_vector = self.style_encoder(mel.transpose(1,2), (style_mask.int()==0).squeeze(1))
     z = self.flow(z_p, y_mask, g=style_vector.unsqueeze(-1), reverse=True)
     # o = self.dec((z * y_mask)[:,:,:max_len], g=g)
     o = self.dec((z * y_mask)[:,:,:max_len], g=None)
