@@ -1,11 +1,11 @@
 # TransferTTS (Zero-shot VITS) - PyTorch Implementation (-Ongoing-)
 
-## Note!!(0923)
+## Note!!(09.23.)
 In current, this is just a implementation of zero-shot system; Not the implementation of the first contribution of the paper: Transfer learning framework using wav2vec2.0. 
 As the future work, the model equipped with complete implementations of the two contributions (zero-shot and transfer-learning) will be implemented in the follwoing [repository](https://github.com/hcy71o/SC-VITS).
 Congratulations on being awarded the best paper in INTERSPEECH 2022.
 
-
+# Overview
 Unofficial PyTorch Implementation of [Transfer Learning Framework for Low-Resource Text-to-Speech using a Large-Scale Unlabeled Speech Corpus](https://arxiv.org/abs/2203.15447). Most of codes are based on [VITS](https://github.com/jaywalnut310/vits)
 
 0. MelStyleEncoder from [StyleSpeech](https://arxiv.org/abs/2106.03153) is used instead of the reference encoder.
@@ -15,10 +15,6 @@ Unofficial PyTorch Implementation of [Transfer Learning Framework for Low-Resour
 <p align="center">
     <img src="img/Overview.jpg" width="80%">
 </p>
-
-# Branch
-- [x] TransferTTS (Zero-shot) (`master` branch)
-- [TODO] TransferTTS (Few-shot) (`fewshot` branch)
 
 ## Pre-requisites (from VITS)
 0. Python >= 3.6
